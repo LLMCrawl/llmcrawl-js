@@ -2,6 +2,7 @@
   "name": "@llmcrawl/llmcrawl-js",
   "version": "0.0.1",
   "description": "Javascript client for LLMCrawl",
+  "packageManager": "pnpm@9.11.0",
   "sideEffects": false,
   "main": "dist/index.js",
   "types": "index.d.ts",
