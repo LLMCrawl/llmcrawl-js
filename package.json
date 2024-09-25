@@ -1,6 +1,6 @@
 {
   "name": "@llmcrawl/llmcrawl-js",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Javascript client for LLMCrawl",
   "packageManager": "pnpm@9.11.0",
   "sideEffects": false,
