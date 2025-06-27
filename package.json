@@ -1,6 +1,6 @@
 {
   "name": "@llmcrawl/llmcrawl-js",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Official JavaScript SDK for LLMCrawl - scrape websites, crawl multiple pages, and extract structured data using AI",
   "packageManager": "bun@1.2.17",
   "sideEffects": false,
