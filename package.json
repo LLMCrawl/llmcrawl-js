@@ -16,7 +16,7 @@
   "scripts": {
     "test": "vitest",
     "build": "tsdown src/index.ts",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "bun run build",
     "release": "bumpp"
   },
   "author": "AIPurrjects",
