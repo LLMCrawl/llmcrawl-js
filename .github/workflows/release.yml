@@ -17,22 +17,18 @@ jobs:
         with:
           fetch-depth: 0
 
-      - run: corepack enable
-      - name: Set node
-        uses: actions/setup-node@v4
-        with:
-          node-version: lts/*
-          cache: pnpm
+      - name: Install bun
+        uses: oven-sh/setup-bun@v2
 
-      - run: npx changelogithub
+      - run: bunx changelogithub
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Dependencies
-        run: pnpm install
+        run: bun install
 
       - name: Publish to NPM
-        run: pnpm publish --access public --no-git-checks
+        run: bun publish --access public --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_CONFIG_PROVENANCE: true

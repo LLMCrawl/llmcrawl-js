@@ -1,251 +1,378 @@
 import { z } from "zod";
 
-export const documentMetadataSchema = z.record(z.any()).and(
-  z.object({
-    title: z.string().optional(),
-    description: z.string().optional(),
-    language: z.string().optional(),
-    keywords: z.string().optional(),
-    robots: z.string().optional(),
-    ogTitle: z.string().optional(),
-    ogDescription: z.string().optional(),
-    ogUrl: z.string().optional(),
-    ogImage: z.string().optional(),
-    ogAudio: z.string().optional(),
-    ogDeterminer: z.string().optional(),
-    ogLocale: z.string().optional(),
-    ogLocaleAlternate: z.array(z.string()).optional(),
-    ogSiteName: z.string().optional(),
-    ogVideo: z.string().optional(),
-    dctermsCreated: z.string().optional(),
-    dcDateCreated: z.string().optional(),
-    dcDate: z.string().optional(),
-    dctermsType: z.string().optional(),
-    dcType: z.string().optional(),
-    dctermsAudience: z.string().optional(),
-    dctermsSubject: z.string().optional(),
-    dcSubject: z.string().optional(),
-    dcDescription: z.string().optional(),
-    dctermsKeywords: z.string().optional(),
-    modifiedTime: z.string().optional(),
-    publishedTime: z.string().optional(),
-    articleTag: z.string().optional(),
-    articleSection: z.string().optional(),
-    sourceUrl: z.string().optional(),
-    pageStatusCode: z.number().optional(),
-    pageError: z.string().optional(),
-  })
-);
-
-export const documentSchema = z.object({
-  url: z.string().optional().describe("URL of the document"),
-  text: z
+// Extract options schema for AI-powered data extraction
+export const extractOptionsSchema = z.object({
+  mode: z.enum(["llm"]).default("llm"),
+  schema: z
+    .any()
+    .optional()
+    .describe(
+      "The schema to use for the extraction (Optional). Must conform to JSON Schema"
+    ),
+  systemPrompt: z
+    .string()
+    .default(
+      "Based on the information on the page, extract all the information from the schema. Try to extract all the fields even those that might not be marked as required."
+    )
+    .describe("The system prompt to use for the extraction"),
+  prompt: z
     .string()
     .optional()
-    .describe("A Readable text content of the document"),
-  markdown: z.string().optional().describe("Markdown content of the document"),
+    .describe("The prompt to use for the extraction without a schema"),
+});
+
+export type ExtractOptions = z.infer<typeof extractOptionsSchema>;
+
+// Scrape options schema
+export const scrapeOptionsSchema = z.object({
+  formats: z
+    .enum([
+      "markdown",
+      "html",
+      "links",
+      "rawHtml",
+      "screenshot",
+      "screenshot@fullPage",
+    ])
+    .array()
+    .optional()
+    .default(["markdown", "html"])
+    .describe("Formats to include in the output"),
+  headers: z
+    .record(z.string(), z.string())
+    .optional()
+    .describe(
+      "Headers to send with the request. Can be used to send cookies, user-agent, etc."
+    ),
+  includeTags: z
+    .string()
+    .array()
+    .optional()
+    .describe("Tags to include in the output"),
+  excludeTags: z
+    .string()
+    .array()
+    .optional()
+    .describe("Tags to exclude from the output"),
+  timeout: z
+    .number()
+    .int()
+    .min(1000)
+    .max(90000)
+    .default(30000)
+    .describe("Timeout in milliseconds for the request"),
+  waitFor: z
+    .number()
+    .int()
+    .min(0)
+    .max(60000)
+    .default(0)
+    .describe(
+      "Specify a delay in milliseconds before fetching the content, allowing the page sufficient time to load"
+    ),
+  extract: extractOptionsSchema.optional(),
+});
+
+export type ScrapeOptions = z.infer<typeof scrapeOptionsSchema>;
+
+// Document metadata schema
+export const documentMetadataSchema = z.object({
+  title: z.string().optional(),
+  description: z.string().optional(),
+  language: z.string().optional(),
+  keywords: z.string().optional(),
+  robots: z.string().optional(),
+  ogTitle: z.string().optional(),
+  ogDescription: z.string().optional(),
+  ogUrl: z.string().optional(),
+  ogImage: z.string().optional(),
+  ogAudio: z.string().optional(),
+  ogDeterminer: z.string().optional(),
+  ogLocale: z.string().optional(),
+  ogLocaleAlternate: z.array(z.string()).optional(),
+  ogSiteName: z.string().optional(),
+  ogVideo: z.string().optional(),
+  dctermsCreated: z.string().optional(),
+  dcDateCreated: z.string().optional(),
+  dcDate: z.string().optional(),
+  dctermsType: z.string().optional(),
+  dcType: z.string().optional(),
+  dctermsAudience: z.string().optional(),
+  dctermsSubject: z.string().optional(),
+  dcSubject: z.string().optional(),
+  dcDescription: z.string().optional(),
+  dctermsKeywords: z.string().optional(),
+  modifiedTime: z.string().optional(),
+  publishedTime: z.string().optional(),
+  articleTag: z.string().optional(),
+  articleSection: z.string().optional(),
+  sourceURL: z.string().optional(),
+  statusCode: z.number().optional(),
+  error: z.string().optional(),
+});
+
+export type DocumentMetadata = z.infer<typeof documentMetadataSchema>;
+
+// Document schema
+export const documentSchema = z.object({
+  markdown: z.string().optional().describe("Markdown content of the page"),
+  extract: z
+    .string()
+    .optional()
+    .describe("Extracted data from the page following the schema defined"),
   html: z
     .string()
     .optional()
-    .describe("HTML content of the document if `includeHtmlContent` is `true`"),
+    .describe("HTML version of the content on page if html is in formats"),
   rawHtml: z
     .string()
     .optional()
-    .describe(
-      "Raw HTML content of the document if `includeRawHtmlContent` is `true`"
-    ),
+    .describe("Raw HTML content of the page if rawHtml is in formats"),
+  links: z
+    .array(z.string())
+    .optional()
+    .describe("List of links on the page if links is in formats"),
   screenshot: z
     .string()
     .optional()
-    .describe("Screenshot of the document if `screenshot` is in `formats`"),
-  fullPageScreenshot: z
+    .describe("Screenshot of the page if screenshot is in formats"),
+  metadata: documentMetadataSchema
+    .default({})
+    .describe(
+      "Metadata about the page including title, description, status code, etc."
+    ),
+});
+
+export type Document = z.infer<typeof documentSchema>;
+
+// Scrape request schema
+export const scrapeRequestSchema = scrapeOptionsSchema.extend({
+  url: z.string().url().describe("Target URL to scrape"),
+  origin: z.string().optional().default("api"),
+  webhookUrls: z
+    .array(z.string().url())
+    .optional()
+    .describe("Webhook URLs to send the response to"),
+  metadata: z
+    .any()
+    .optional()
+    .describe("Additional metadata to include with the request"),
+});
+
+export type ScrapeRequest = z.infer<typeof scrapeRequestSchema>;
+
+// Scrape response schemas
+export const scrapeSuccessResponseSchema = z.object({
+  success: z.literal(true),
+  warning: z
     .string()
     .optional()
     .describe(
-      "Full page screenshot of the document if `fullPageScreenshot` is in `formats`"
+      "Warning message that may let you know about any issues with the extraction"
     ),
-  summary: z.string().optional().describe("Summary of the document"),
-  extract: z.record(z.any()).optional().describe("Schema extracted data"),
-  numTokens: z.number().optional().describe("Number of tokens in the content"),
-  contentTrimmed: z
-    .boolean()
+  data: documentSchema,
+  scrape_id: z
+    .string()
     .optional()
-    .describe("Whether the content is trimmed"),
-
-  metadata: documentMetadataSchema.describe("Metadata of the document"),
-
-  childrenLinks: z.array(z.string()).optional().describe("Links on the page"),
-  provider: z.string().optional().describe("The provider of the document"),
-  warning: z.string().optional().describe("Warning message if any"),
-  index: z.number().optional().describe("Index of the document in the list"),
-});
-
-export type IDocument = z.infer<typeof documentSchema>;
-
-export const documentCrawlSchema = documentSchema.extend({
-  index: z.number().describe("Index of the document in the list"),
-});
-
-export const scrapeSuccessResponseSchema = z.object({
-  success: z.literal(true),
-  data: documentSchema.describe("The scraped document"),
-  returnCode: z.number().default(200),
+    .describe("Unique identifier for the scrape operation"),
 });
 
 export const scrapeErrorResponseSchema = z.object({
   success: z.literal(false),
-  error: z.string(),
-  returnCode: z.number(),
+  error: z.string().describe("Error message describing what went wrong"),
+  details: z.any().optional().describe("Additional error details"),
 });
 
-const scrapeResponseSchema = z.discriminatedUnion("success", [
+export const scrapeResponseSchema = z.discriminatedUnion("success", [
   scrapeSuccessResponseSchema,
   scrapeErrorResponseSchema,
 ]);
 
 export type ScrapeResponse = z.infer<typeof scrapeResponseSchema>;
 
-export const externalResponseSchema = z.object({
-  success: z.boolean(),
-  data: z.any().optional(),
-  error: z.string().optional(),
-  returnCode: z.number(),
+// Crawler options schema
+export const crawlerOptionsSchema = z.object({
+  includePaths: z
+    .array(z.string())
+    .default([])
+    .describe(
+      "Paths to include in the crawl. Only URLs matching these paths will be crawled"
+    ),
+  excludePaths: z
+    .array(z.string())
+    .default([])
+    .describe(
+      "Paths to exclude from the crawl. URLs matching these paths will be skipped"
+    ),
+  maxDepth: z
+    .number()
+    .default(10)
+    .describe("Maximum depth to crawl relative to the entered URL"),
+  limit: z.number().default(10000).describe("Maximum number of pages to crawl"),
+  allowBackwardLinks: z
+    .boolean()
+    .default(false)
+    .describe(
+      "Allow crawling pages that link back to a previously crawled page"
+    ),
+  allowExternalLinks: z
+    .boolean()
+    .default(false)
+    .describe("Allow crawling external domains"),
+  ignoreSitemap: z
+    .boolean()
+    .default(true)
+    .describe("Ignore the robots.txt and sitemap.xml files"),
 });
 
-export const summarizerOptionsSchema = z.object({
-  mode: z.enum(["from-markdown", "from-raw-html"]).optional(),
-  prompt: z.string().optional(),
+export type CrawlerOptions = z.infer<typeof crawlerOptionsSchema>;
+
+// Crawl request schema
+export const crawlRequestSchema = crawlerOptionsSchema.extend({
+  url: z.string().url().describe("Target URL to crawl"),
+  origin: z.string().optional().default("api"),
+  scrapeOptions: scrapeOptionsSchema
+    .omit({ timeout: true })
+    .default({})
+    .describe("Options for scraping each page during the crawl"),
+  webhookUrls: z
+    .array(z.string().url())
+    .optional()
+    .describe("Webhook URLs to send the response to"),
+  webhookMetadata: z
+    .any()
+    .optional()
+    .describe("Additional metadata to include with webhook calls"),
+  limit: z.number().default(10000).describe("Maximum number of pages to crawl"),
 });
 
-export type SummarizerOptions = z.infer<typeof summarizerOptionsSchema>;
+export type CrawlRequest = z.infer<typeof crawlRequestSchema>;
 
-export const contentOptionsSchema = z
-  .object({
-    mainContentOnly: z
-      .boolean()
-      .optional()
-      .default(false)
-      .describe(
-        "If `true`, only the main content of the page will be returned, excluding headers, navigation, footers, etc."
-      ),
-    waitTime: z
-      .number()
-      .int()
-      .optional()
-      .default(0)
-      .describe(
-        "The number of milliseconds to wait before capturing the page content. Useful for pages that load content dynamically."
-      ),
-    elementsToRemove: z
-      .array(z.string())
-      .optional()
-      .default([])
-      .describe(
-        "A list of CSS selectors to remove from the page content before returning it."
-      ),
-    elementsToInclude: z
-      .array(z.string())
-      .optional()
-      .default([])
-      .describe(
-        "A list of CSS selectors to include in the page content before returning it."
-      ),
-    customHeaders: z
-      .record(z.string())
-      .optional()
-      .describe(
-        "A list of custom headers to include in the request to the target URL, e.g. `{ 'User-Agent': 'Mozilla/5.0' }`."
-      ),
-    convertPathsToAbsolute: z
-      .boolean()
-      .optional()
-      .default(false)
-      .describe(
-        "If `true`, all relative paths with absolute paths for images, links, etc. in the HTML content."
-      ),
-    processPDFs: z
-      .boolean()
-      .optional()
-      .default(true)
-      .describe(
-        "If `true`, parses the content of PDF files found on the page and returns the text content within the `content` key."
-      ),
-  })
-  .describe("Configuration for the scraping process");
+// Crawl response schemas
+export const crawlSuccessResponseSchema = z.object({
+  success: z.literal(true),
+  id: z.string().describe("Unique identifier for the crawl job"),
+  url: z.string().describe("The URL that is being crawled"),
+});
 
-export type ContentOptions = z.infer<typeof contentOptionsSchema>;
+export const crawlErrorResponseSchema = z.object({
+  success: z.literal(false),
+  error: z.string().describe("Error message describing what went wrong"),
+  details: z.any().optional().describe("Additional error details"),
+});
 
-export const formats = z.enum([
-  "text",
-  "html",
-  "rawHtml",
-  "markdown",
-  "text",
-  "links",
-  "screenshot",
-  "full-page-screenshot",
-  "extract",
-  "summary",
+export const crawlResponseSchema = z.discriminatedUnion("success", [
+  crawlSuccessResponseSchema,
+  crawlErrorResponseSchema,
 ]);
 
-export type Format = z.infer<typeof formats>;
+export type CrawlResponse = z.infer<typeof crawlResponseSchema>;
 
-export const jsonSchema = z
-  .object({
-    type: z.string().optional(),
-    properties: z
-      .record(
-        z.object({
-          type: z.string().optional(),
-          properties: z
-            .record(z.object({ type: z.string().optional() }))
-            .optional(),
-        })
-      )
-      .optional(),
-  })
-  .describe("The JSON schema to use for extraction");
-
-export type AIJsonSchema = z.infer<typeof jsonSchema>;
-
-export const extractionOptionsSchema = z.object({
-  mode: z
-    .enum(["from-markdown", "from-raw-html"])
-    .optional()
-    .default("from-markdown"),
-  prompt: z
-    .string()
-    .default(
-      "Extract the relevant data from the webpage using the provided JSON schema."
-    )
-    .describe("The prompt to extract data for"),
-  schema: jsonSchema.optional(),
-});
-
-export type ExtractionOptions = z.infer<typeof extractionOptionsSchema>;
-
-export const scrapeRequestSchema = z.object({
-  url: z.string().url().describe("Target URL to scrape"),
-  requestTimeout: z
+// Crawl status response schema
+export const crawlStatusSuccessResponseSchema = z.object({
+  success: z.literal(true),
+  status: z
+    .enum(["scraping", "completed", "failed", "cancelled"])
+    .describe("The current status of the crawl"),
+  completed: z
     .number()
-    .int()
+    .describe("The number of pages that have been successfully crawled"),
+  total: z
+    .number()
+    .describe("The total number of pages that were attempted to be crawled"),
+  expiresAt: z
+    .string()
+    .describe("The date and time when the crawl will expire"),
+  next: z
+    .string()
     .optional()
-    .default(30_000)
     .describe(
-      "The maximum time in milliseconds to wait for the request to complete."
+      "The URL to retrieve the next 10MB of data. Returned if the crawl is not completed or if the response is larger than 10MB"
     ),
-  formats: z
-    .array(formats)
-    .min(1, { message: "At least one format must be specified." })
-    .optional()
-    .default(["markdown"])
-    .describe(
-      "The formats to return the content in. Possible values are `html`, `rawHtml`, `markdown`, `text`, `links`, `screenshot`, `full-page-screenshot`, `extract`, and `summary`. Note that `extract`, and `summary` consume more credits."
-    ),
-  options: contentOptionsSchema.optional(),
-  summarizer: summarizerOptionsSchema.optional(),
-  extraction: extractionOptionsSchema.optional(),
-  origin: z.string().optional(),
+  data: z.array(documentSchema).describe("The data of the crawl"),
 });
 
-export type ScrapeRequest = z.infer<typeof scrapeRequestSchema>;
+export const crawlStatusErrorResponseSchema = z.object({
+  success: z.literal(false),
+  error: z.string().describe("Error message describing what went wrong"),
+  details: z.any().optional().describe("Additional error details"),
+});
+
+export const crawlStatusResponseSchema = z.discriminatedUnion("success", [
+  crawlStatusSuccessResponseSchema,
+  crawlStatusErrorResponseSchema,
+]);
+
+export type CrawlStatusResponse = z.infer<typeof crawlStatusResponseSchema>;
+
+// Crawl cancel response schema
+export const crawlCancelSuccessResponseSchema = z.object({
+  success: z.literal(true),
+  message: z
+    .string()
+    .optional()
+    .describe("Success message confirming the crawl cancellation"),
+});
+
+export const crawlCancelErrorResponseSchema = z.object({
+  success: z.literal(false),
+  error: z.string().describe("Error message describing what went wrong"),
+  details: z.any().optional().describe("Additional error details"),
+});
+
+export const crawlCancelResponseSchema = z.discriminatedUnion("success", [
+  crawlCancelSuccessResponseSchema,
+  crawlCancelErrorResponseSchema,
+]);
+
+export type CrawlCancelResponse = z.infer<typeof crawlCancelResponseSchema>;
+
+// Map request schema
+export const mapRequestSchema = crawlerOptionsSchema.extend({
+  url: z.string().url().describe("Target URL to map"),
+  origin: z.string().optional().default("api"),
+  includeSubdomains: z
+    .boolean()
+    .default(true)
+    .describe("Include subdomains of the website"),
+  search: z
+    .string()
+    .optional()
+    .describe("Search query to filter the map results"),
+  ignoreSitemap: z
+    .boolean()
+    .default(true)
+    .describe("Ignore the robots.txt and sitemap.xml files"),
+  limit: z
+    .number()
+    .min(1)
+    .max(5000)
+    .default(5000)
+    .optional()
+    .describe("Maximum number of links to return"),
+});
+
+export type MapRequest = z.infer<typeof mapRequestSchema>;
+
+// Map response schemas
+export const mapSuccessResponseSchema = z.object({
+  success: z.literal(true),
+  links: z.array(z.string()).describe("List of links found on the website"),
+  scrape_id: z
+    .string()
+    .optional()
+    .describe("Unique identifier for the map operation"),
+});
+
+export const mapErrorResponseSchema = z.object({
+  success: z.literal(false),
+  error: z.string().describe("Error message describing what went wrong"),
+  details: z.any().optional().describe("Additional error details"),
+});
+
+export const mapResponseSchema = z.discriminatedUnion("success", [
+  mapSuccessResponseSchema,
+  mapErrorResponseSchema,
+]);
+
+export type MapResponse = z.infer<typeof mapResponseSchema>;
